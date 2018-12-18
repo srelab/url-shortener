@@ -1,0 +1,26 @@
+# Consists of 'IP:Port', e.g. ':8080' listens on any IP and on Port 8080
+ListenAddr: ':8080'
+# Can be 'redis'
+Backend: redis
+# Length of the random generated ID which is used for new shortened URLs
+ShortedIDLength: 4
+# APP run Location
+Location: '/s'
+
+Redis:
+  # host:port combination; required
+  Host: localhost:6379
+  # redis connection password; optional; default is none
+  Password: redispass
+  # redis index (https://redis.io/commands/select); optional; default is 0
+  Db: 0
+  # maximum number of retries for a failed redis command
+  MaxRetries: 3
+  # timeout for read operations; default is 3s. This is a golang time.ParseDuration string
+  ReadTimeout: 3s
+  # timeout for write operations; default is 3s. This is a golang time.ParseDuration string
+  WriteTimeout: 3s
+  # redis session store index (https://redis.io/commands/select); optional; default is 1
+  SessionDB: 1
+  # redis session store shared key; optional; default is "secret"
+  SharedKey: secret
