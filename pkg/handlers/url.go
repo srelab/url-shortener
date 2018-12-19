@@ -50,20 +50,13 @@ func (handler *Handler) create(ctx echo.Context) error {
 		return FailureResponse(ctx, http.StatusInternalServerError, ApiErrorSystem, err)
 	}
 
-	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{
-		Result: map[string]interface{}{
-			"id":  id,
-			"url": fmt.Sprintf("%s/%s", handler.GetURLOrigin(ctx), id),
-			"deletion_url": fmt.Sprintf(
-				"%s/%s/%s",
-				handler.GetURLOrigin(ctx),
-				id,
-				url.QueryEscape(base64.RawURLEncoding.EncodeToString(delID)),
-			),
-			"password":   payload.Password,
-			"expiration": payload.Expiration,
-		},
-	})
+	payload.ID = id
+	payload.URL = fmt.Sprintf("%s/%s", handler.GetURLOrigin(ctx), id)
+	payload.DeletionURL = fmt.Sprintf(
+		"%s/%s/%s", handler.GetURLOrigin(ctx), id, url.QueryEscape(base64.RawURLEncoding.EncodeToString(delID)),
+	)
+	
+	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{Result: payload})
 }
 
 func (handler *Handler) recent(ctx echo.Context) error {
