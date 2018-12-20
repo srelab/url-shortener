@@ -24,3 +24,6 @@ Redis:
   SessionDB: 1
   # redis session store shared key; optional; default is "secret"
   SharedKey: secret
+
+Log:
+  level: debug

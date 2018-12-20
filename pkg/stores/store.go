@@ -34,9 +34,6 @@ var ErrNoValidURL = errors.New("the given URL is no valid URL")
 // ErrGeneratingIDFailed is returned when the 10 tries to generate an id failed
 var ErrGeneratingIDFailed = errors.New("could not generate unique id, all ten tries failed")
 
-// ErrEntryIsExpired is returned when the entry is expired
-var ErrEntryIsExpired = errors.New("entry is expired")
-
 // New initializes the store with the db
 func New() (*Store, error) {
 	var err error
@@ -77,10 +74,6 @@ func (store *Store) GetEntryAndIncrease(id string) (*shared.Entry, error) {
 	entry, err := store.GetEntryByID(id)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not fetch entry "+id)
-	}
-
-	if entry.Public.Expiration != nil && !entry.Public.Expiration.IsZero() && time.Now().Unix() > entry.Public.Expiration.Unix() {
-		return nil, ErrEntryIsExpired
 	}
 
 	if err := store.storage.IncreaseVisitCounter(id); err != nil {

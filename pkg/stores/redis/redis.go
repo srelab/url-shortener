@@ -3,6 +3,7 @@ package redis
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis"
@@ -11,11 +12,9 @@ import (
 	"github.com/srelab/url-shortener/pkg/stores/shared"
 )
 
-var (
+const (
 	entryKeyPrefix       = "entry:"        // prefix for path-to-url mappings
 	entryVisitsKeyPrefix = "entry:visits:" // prefix for entry-to-[]visit mappings (redis LIST)
-
-	entriesKey = "entries" // prefix for []entries mappings (redis SET)
 )
 
 // Store implements the stores.Storage interface
@@ -75,25 +74,14 @@ func (storage *Storage) keyExists(key string) (exists bool, err error) {
 	return false, nil
 }
 
-// setValue sets the value of a key in redis.
-func (storage *Storage) setValue(key string, raw []byte) error {
-	logger.Debugf("Setting value for key '%s: '%s''", key, raw)
-	// n.b. expiration 0 means never expire
-	status := storage.client.Set(key, raw, 0)
+// createValue create value in redis via key, that returns an error if the key already exists.
+func (storage *Storage) createValue(key string, raw []byte, expiration time.Duration) error {
+	logger.Debugf("Creating key '%s', expiration %d", key, expiration)
 
-	if status.Err() != nil {
-		errmsg := fmt.Sprintf("Got an unexpected error adding key '%s': %s", key, status.Err())
-
-		logger.Error(errmsg)
-		return errors.Wrap(status.Err(), errmsg)
+	if expiration < 0 {
+		logger.Infof("Skip the creation of the key '%s', it has expired", key)
+		return nil
 	}
-
-	return nil
-}
-
-// createValue is a wrapper around setValue that returns an error if the key already exists.
-func (storage *Storage) createValue(key string, raw []byte) error {
-	logger.Debugf("Creating key '%s'", key)
 
 	exists, err := storage.keyExists(key)
 	if err != nil {
@@ -110,7 +98,17 @@ func (storage *Storage) createValue(key string, raw []byte) error {
 		return errors.New(errmsg)
 	}
 
-	return storage.setValue(key, raw)
+	logger.Debugf("Setting value for key '%s: '%s''", key, raw)
+
+	status := storage.client.Set(key, raw, expiration)
+	if status.Err() != nil {
+		errmsg := fmt.Sprintf("Got an unexpected error adding key '%s': %s", key, status.Err())
+
+		logger.Error(errmsg)
+		return errors.Wrap(status.Err(), errmsg)
+	}
+
+	return nil
 }
 
 // delValue deletes a key in redis.
@@ -149,7 +147,6 @@ func (storage *Storage) CreateEntry(entry shared.Entry, id string) error {
 	logger.Debugf("Creating entry '%s' for user '%s'", id)
 
 	raw, err := json.Marshal(entry)
-	fmt.Println(string(raw))
 	if err != nil {
 		errmsg := fmt.Sprintf("Could not marshal JSON for entry %s: %v", id, err)
 
@@ -160,7 +157,7 @@ func (storage *Storage) CreateEntry(entry shared.Entry, id string) error {
 	entryKey := entryKeyPrefix + id
 	logger.Debugf("Adding key '%s': %s", entryKey, raw)
 
-	err = storage.createValue(entryKey, raw)
+	err = storage.createValue(entryKey, raw, entry.GetExpiration())
 	if err != nil {
 		errmsg := fmt.Sprintf("Failed to set key '%s': %v", entryKey, err)
 
@@ -168,17 +165,6 @@ func (storage *Storage) CreateEntry(entry shared.Entry, id string) error {
 		return errors.Wrap(err, errmsg)
 	}
 
-	// add the entry to the SET of entries
-	logger.Debugf("Adding entry '%s' to set of entries '%s'", id)
-	result := storage.client.SAdd(entriesKey, id)
-	if result.Err() != nil {
-		errmsg := fmt.Sprintf("Failed to add entry '%s': %v", id, result.Err())
-
-		logger.Error(errmsg)
-		return errors.Wrap(result.Err(), errmsg)
-	}
-
-	logger.Debugf("Successfully added entry '%s' to set '%s'", id, entriesKey)
 	return nil
 }
 
@@ -204,19 +190,10 @@ func (storage *Storage) DeleteEntry(id string) error {
 		return errors.Wrap(err, errmsg)
 	}
 
-	// delete the entry from set of entries for the user
-	err = storage.client.SRem(entriesKey+entryKey, id).Err()
-	if err != nil {
-		errmsg := fmt.Sprintf("Could not remove entry '%s' from list of entries: %v", id, err)
-
-		logger.Error(errmsg)
-		return errors.Wrap(err, errmsg)
-	}
-
-	// delete the id-to-user mapping
+	// delete the id mapping
 	err = storage.delValue(entryKey)
 	if err != nil {
-		errmsg := fmt.Sprintf("Could not delete the path-to-user mapping for entry '%s': %v", id, err)
+		errmsg := fmt.Sprintf("Could not delete the path mapping for entry '%s': %v", id, err)
 
 		logger.Error(errmsg)
 		return errors.Wrap(err, errmsg)
@@ -294,7 +271,8 @@ func (storage *Storage) GetEntryByID(id string) (*shared.Entry, error) {
 func (storage *Storage) GetEntries() (map[string]shared.Entry, error) {
 	entries := map[string]shared.Entry{}
 
-	result := storage.client.SMembers(entriesKey)
+	entriesKey := entryKeyPrefix + "*"
+	result := storage.client.Keys(entriesKey)
 	if result.Err() != nil {
 		errmsg := fmt.Sprintf("Could not fetch set of entries for entries prefix '%s': %v", entriesKey, result.Err())
 
@@ -302,15 +280,19 @@ func (storage *Storage) GetEntries() (map[string]shared.Entry, error) {
 		return nil, errors.Wrap(result.Err(), errmsg)
 	}
 
-	for _, v := range result.Val() {
-		logger.Debugf("got entry: %s", v)
+	for _, key := range result.Val() {
+		logger.Debugf("got key: %s", key)
+		if !strings.HasPrefix(key, entryKeyPrefix) {
+			continue
+		}
 
-		entry, err := storage.GetEntryByID(string(v))
+		id := strings.TrimLeft(key, entryKeyPrefix)
+		entry, err := storage.GetEntryByID(id)
 		if err != nil {
-			msg := fmt.Sprintf("Could not get entry '%s': %s", v, err)
+			msg := fmt.Sprintf("Could not get key '%s': %s", key, err)
 			logger.Warn(msg)
 		} else {
-			entries[string(v)] = *entry
+			entries[id] = *entry
 		}
 	}
 
@@ -329,13 +311,19 @@ func (storage *Storage) RegisterVisitor(id, visitID string, visitor shared.Visit
 	}
 
 	// push the visit data onto a redis list who's key is the url id
-	result := storage.client.LPush(entryVisitsKeyPrefix+id, data)
+	entryVisitsKey := entryVisitsKeyPrefix + id
+	result := storage.client.LPush(entryVisitsKey, data)
 	if result.Err() != nil {
 		errmsg := fmt.Sprintf("Could not register visitor for ID %s: %s", id, result.Err())
 
 		logger.Error(errmsg)
 		return errors.Wrap(err, errmsg)
 	}
+
+	if visitor.Expiration > 0 {
+		storage.client.Expire(entryVisitsKey, visitor.Expiration)
+	}
+
 	return err
 }
 

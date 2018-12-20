@@ -27,6 +27,7 @@ func (handler UrlHandler) Init() {
 	group.POST("", handler.create)
 
 	group.GET("/:id/lookup", handler.lookup)
+	group.GET("/:id/visitors", handler.visitors)
 	group.DELETE("/:id/:hash", handler.delete)
 }
 
@@ -109,4 +110,17 @@ func (handler *Handler) delete(ctx echo.Context) error {
 	}
 
 	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{})
+}
+
+func (handler *Handler) visitors(ctx echo.Context) error {
+	id := ctx.Param("id")
+	visitors, err := handler.store.GetVisitors(id)
+
+	if err != nil {
+		return FailureResponse(ctx, http.StatusNotFound, ApiErrorResourceNotExists, err)
+	}
+
+	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{
+		Result: visitors,
+	})
 }

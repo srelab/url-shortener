@@ -230,7 +230,7 @@ func New(store stores.Store) (*Handler, error) {
 		}
 
 		if len(entry.Password) == 0 {
-			go handler.RegisterVisitor(id, ctx)
+			go handler.RegisterVisitor(id, ctx, entry)
 			return ctx.Redirect(http.StatusTemporaryRedirect, entry.Public.URL)
 		}
 
@@ -243,14 +243,14 @@ func New(store stores.Store) (*Handler, error) {
 			return FailureResponse(ctx, http.StatusBadRequest, ApiErrorPasswordInvalid, err)
 		}
 
-		go handler.RegisterVisitor(id, ctx)
+		go handler.RegisterVisitor(id, ctx, entry)
 		return ctx.Redirect(http.StatusTemporaryRedirect, entry.Public.URL)
 	})
 
 	return handler, nil
 }
 
-func (handler *Handler) RegisterVisitor(id string, ctx echo.Context) {
+func (handler *Handler) RegisterVisitor(id string, ctx echo.Context, entry *shared.Entry) {
 	handler.store.RegisterVisit(id, shared.Visitor{
 		IP:          ctx.RealIP(),
 		Timestamp:   &shared.Datetime{Time: time.Now()},
@@ -261,6 +261,7 @@ func (handler *Handler) RegisterVisitor(id string, ctx echo.Context) {
 		UTMCampaign: ctx.QueryParam("utm_campaign"),
 		UTMContent:  ctx.QueryParam("utm_content"),
 		UTMTerm:     ctx.QueryParam("utm_term"),
+		Expiration:  entry.GetExpiration(),
 	})
 }
 

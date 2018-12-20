@@ -9,6 +9,8 @@ import (
 	"github.com/srelab/url-shortener/pkg/g"
 )
 
+const defaultExpiration = time.Second * 5
+
 type Datetime struct {
 	time.Time
 }
@@ -53,6 +55,21 @@ type Entry struct {
 	Public      EntryPublicData `json:"public"`
 }
 
+// GetExpiration calculate the difference by expiration time
+func (entry *Entry) GetExpiration() time.Duration {
+	if entry.Public.Expiration.IsZero() {
+		return 0
+	}
+
+	expiration := time.Duration(entry.Public.Expiration.Time.UnixNano() - time.Now().UnixNano())
+	if expiration < defaultExpiration {
+		// default expiration time (duration)
+		expiration = defaultExpiration
+	}
+
+	return expiration
+}
+
 // EntryPublicData is the public part of an entry
 type EntryPublicData struct {
 	CreatedOn  *Datetime `json:"created_on"`
@@ -73,6 +90,8 @@ type Visitor struct {
 	UTMCampaign string    `json:"utm_campaign,omitempty"`
 	UTMContent  string    `json:"utm_content,omitempty"`
 	UTMTerm     string    `json:"utm_term,omitempty"`
+
+	Expiration time.Duration `json:"-"`
 }
 
 // ErrNoEntryFound is returned when no entry to a id is found
