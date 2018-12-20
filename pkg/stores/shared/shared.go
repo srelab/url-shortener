@@ -2,8 +2,35 @@ package shared
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/srelab/url-shortener/pkg/g"
 )
+
+type Datetime struct {
+	time.Time
+}
+
+func (d *Datetime) UnmarshalJSON(b []byte) (err error) {
+	str := strings.Trim(string(b), "\"")
+	if str == "null" || str == "" {
+		d.Time = time.Time{}
+		return
+	}
+
+	d.Time, err = time.ParseInLocation(g.DefaultTimeFormat, str, time.Local)
+	return
+}
+
+func (d *Datetime) MarshalJSON() ([]byte, error) {
+	if d.Time.UnixNano() == (time.Time{}).UnixNano() {
+		return []byte("null"), nil
+	}
+
+	return []byte(fmt.Sprintf("\"%s\"", d.Time.Format(g.DefaultTimeFormat))), nil
+}
 
 // Storage is an interface which will be implmented by each storage
 // e.g. bolt, sqlite
@@ -20,30 +47,32 @@ type Storage interface {
 
 // Entry is the data set which is stored in the DB as JSON
 type Entry struct {
-	RemoteAddr  string `json:",omitempty"`
-	DeletionURL string `json:",omitempty"`
-	Password    []byte `json:",omitempty"`
-	Public      EntryPublicData
+	RemoteAddr  string          `json:"remote_addr,omitempty"`
+	DeletionURL string          `json:"deletion_url,omitempty"`
+	Password    []byte          `json:"password,omitempty"`
+	Public      EntryPublicData `json:"public"`
 }
 
 // EntryPublicData is the public part of an entry
 type EntryPublicData struct {
-	CreatedOn  time.Time
-	LastVisit  *time.Time `json:",omitempty"`
-	Expiration *time.Time `json:",omitempty"`
-	VisitCount int
-	URL        string
+	CreatedOn  *Datetime `json:"created_on"`
+	LastVisit  *Datetime `json:"last_visit,omitempty"`
+	Expiration *Datetime `json:"expiration,omitempty"`
+	VisitCount int       `json:"visit_count"`
+	URL        string    `json:"url"`
 }
 
 // Visitor is the entry which is stored in the visitors bucket
 type Visitor struct {
-	IP, Referer, UserAgent string
-	Timestamp              time.Time
-	UTMSource              string `json:",omitempty"`
-	UTMMedium              string `json:",omitempty"`
-	UTMCampaign            string `json:",omitempty"`
-	UTMContent             string `json:",omitempty"`
-	UTMTerm                string `json:",omitempty"`
+	IP          string    `json:"ip"`
+	Referer     string    `json:"referer"`
+	UserAgent   string    `json:"user_agent"`
+	Timestamp   *Datetime `json:"timestamp"`
+	UTMSource   string    `json:"utm_source,omitempty"`
+	UTMMedium   string    `json:"utm_medium,omitempty"`
+	UTMCampaign string    `json:"utm_campaign,omitempty"`
+	UTMContent  string    `json:"utm_content,omitempty"`
+	UTMTerm     string    `json:"utm_term,omitempty"`
 }
 
 // ErrNoEntryFound is returned when no entry to a id is found

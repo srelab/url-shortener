@@ -13,3 +13,6 @@
 
 # IDE
 *.idea
+
+# LOG
+*.log

@@ -180,7 +180,7 @@ func (store *Store) createEntry(entry shared.Entry, entryID string) (string, []b
 		}
 	}
 
-	entry.Public.CreatedOn = time.Now()
+	entry.Public.CreatedOn = &shared.Datetime{Time: time.Now()}
 	mac := hmac.New(sha512.New, util.GetPrivateKey())
 
 	if _, err := mac.Write([]byte(entryID)); err != nil {

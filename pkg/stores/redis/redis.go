@@ -149,6 +149,7 @@ func (storage *Storage) CreateEntry(entry shared.Entry, id string) error {
 	logger.Debugf("Creating entry '%s' for user '%s'", id)
 
 	raw, err := json.Marshal(entry)
+	fmt.Println(string(raw))
 	if err != nil {
 		errmsg := fmt.Sprintf("Could not marshal JSON for entry %s: %v", id, err)
 
@@ -268,7 +269,9 @@ func (storage *Storage) GetEntryByID(id string) (*shared.Entry, error) {
 
 	// grab the timestamp out of the last visitor on the list
 	var visitor *shared.Visitor
-	lastVisit := time.Time(time.Unix(0, 0)) // default to start-of-epoch if we can't figure it out
+
+	// default to start-of-epoch if we can't figure it out
+	lastVisit := &shared.Datetime{Time: time.Time(time.Unix(0, 0))}
 	raw, err = storage.client.LIndex(entryVisitsKey, 0).Bytes()
 	if err != nil {
 		logger.Warnf("Could not fetch visitor list for entry '%s': %v", id, err)
@@ -282,7 +285,7 @@ func (storage *Storage) GetEntryByID(id string) (*shared.Entry, error) {
 	}
 
 	logger.Debugf("Setting last visit time for entry '%s' to '%v'", id, lastVisit)
-	entry.Public.LastVisit = &lastVisit
+	entry.Public.LastVisit = lastVisit
 
 	return entry, nil
 }

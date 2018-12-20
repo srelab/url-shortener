@@ -15,14 +15,17 @@ import (
 	"github.com/labstack/echo"
 )
 
+const prefix = "/api/v1/urls"
+
 type UrlHandler struct {
 	*Handler
 }
 
 func (handler UrlHandler) Init() {
-	group := handler.engine.Group("/api/v1/urls")
-	group.POST("/", handler.create)
-	group.GET("/recent", handler.recent)
+	group := handler.engine.Group(prefix)
+	group.GET("", handler.all)
+	group.POST("", handler.create)
+
 	group.GET("/:id/lookup", handler.lookup)
 	group.DELETE("/:id/:hash", handler.delete)
 }
@@ -33,12 +36,8 @@ func (handler *Handler) create(ctx echo.Context) error {
 		return FailureResponse(ctx, http.StatusBadRequest, ApiErrorParameter, err)
 	}
 
-	if payload.Expiration == nil {
-		payload.Expiration = &Datetime{}
-	}
-
 	id, delID, err := handler.store.CreateEntry(shared.Entry{
-		Public:     shared.EntryPublicData{URL: payload.URL, Expiration: &payload.Expiration.Time},
+		Public:     shared.EntryPublicData{URL: payload.URL, Expiration: payload.Expiration},
 		RemoteAddr: ctx.RealIP(),
 	}, payload.ID, payload.Password)
 
@@ -55,11 +54,11 @@ func (handler *Handler) create(ctx echo.Context) error {
 	payload.DeletionURL = fmt.Sprintf(
 		"%s/%s/%s", handler.GetURLOrigin(ctx), id, url.QueryEscape(base64.RawURLEncoding.EncodeToString(delID)),
 	)
-	
+
 	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{Result: payload})
 }
 
-func (handler *Handler) recent(ctx echo.Context) error {
+func (handler *Handler) all(ctx echo.Context) error {
 	entries, err := handler.store.GetEntries()
 	if err != nil {
 		return FailureResponse(ctx, http.StatusNotFound, ApiErrorSystem, err)
@@ -72,7 +71,7 @@ func (handler *Handler) recent(ctx echo.Context) error {
 		}
 
 		entry.DeletionURL = fmt.Sprintf(
-			"%s/d/%s/%s",
+			"%s/%s/%s",
 			handler.GetURLOrigin(ctx),
 			k,
 			url.QueryEscape(base64.RawURLEncoding.EncodeToString(mac.Sum(nil))),
@@ -95,9 +94,7 @@ func (handler *Handler) lookup(ctx echo.Context) error {
 	}
 
 	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{
-		Result: shared.Entry{
-			Public: shared.EntryPublicData{URL: entry.Public.URL},
-		},
+		Result: entry,
 	})
 }
 

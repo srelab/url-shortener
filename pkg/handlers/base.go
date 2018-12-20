@@ -151,12 +151,12 @@ func New(store stores.Store) (*Handler, error) {
 	handler.engine.Validator = func() echo.Validator {
 		v := validator.New()
 
-		v.RegisterValidation("json", func(fl validator.FieldLevel) bool {
+		_ = v.RegisterValidation("json", func(fl validator.FieldLevel) bool {
 			var js json.RawMessage
 			return json.Unmarshal([]byte(fl.Field().String()), &js) == nil
 		})
 
-		v.RegisterValidation("in", func(fl validator.FieldLevel) bool {
+		_ = v.RegisterValidation("in", func(fl validator.FieldLevel) bool {
 			values := strings.Split(fl.Param(), ";")
 			fieldValue := fmt.Sprintf("%v", fl.Field())
 
@@ -253,7 +253,7 @@ func New(store stores.Store) (*Handler, error) {
 func (handler *Handler) RegisterVisitor(id string, ctx echo.Context) {
 	handler.store.RegisterVisit(id, shared.Visitor{
 		IP:          ctx.RealIP(),
-		Timestamp:   time.Now(),
+		Timestamp:   &shared.Datetime{Time: time.Now()},
 		Referer:     ctx.Request().Header.Get("Referer"),
 		UserAgent:   ctx.Request().Header.Get("User-Agent"),
 		UTMSource:   ctx.QueryParam("utm_source"),
