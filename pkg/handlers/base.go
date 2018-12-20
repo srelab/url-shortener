@@ -113,7 +113,7 @@ type Handler struct {
 	engine *echo.Echo
 }
 
-func (handler *Handler) GetURLOrigin(ctx echo.Context) string {
+func (handler *Handler) getURL(ctx echo.Context) string {
 	protocol := "http"
 	if ctx.Request().TLS != nil || ctx.Request().Header.Get("X-Forwarded-Proto") == "https" {
 		protocol = "https"
@@ -125,6 +125,15 @@ func (handler *Handler) GetURLOrigin(ctx echo.Context) string {
 	}
 
 	return fmt.Sprintf("%s://%s", protocol, ctx.Request().Host)
+}
+
+func (handler *Handler) getDeletionURL(ctx echo.Context, prefix string) string {
+	protocol := "http"
+	if ctx.Request().TLS != nil || ctx.Request().Header.Get("X-Forwarded-Proto") == "https" {
+		protocol = "https"
+	}
+
+	return fmt.Sprintf("%s://%s/%s", protocol, ctx.Request().Host, strings.TrimLeft(prefix, "/"))
 }
 
 // New initializes the http handlers

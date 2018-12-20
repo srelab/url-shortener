@@ -51,9 +51,9 @@ func (handler *Handler) create(ctx echo.Context) error {
 	}
 
 	payload.ID = id
-	payload.URL = fmt.Sprintf("%s/%s", handler.GetURLOrigin(ctx), id)
+	payload.URL = fmt.Sprintf("%s/%s", handler.getURL(ctx), id)
 	payload.DeletionURL = fmt.Sprintf(
-		"%s/%s/%s", handler.GetURLOrigin(ctx), id, url.QueryEscape(base64.RawURLEncoding.EncodeToString(delID)),
+		"%s/%s/%s", handler.getDeletionURL(ctx, prefix), id, url.QueryEscape(base64.RawURLEncoding.EncodeToString(delID)),
 	)
 
 	return SuccessResponse(ctx, http.StatusOK, &HandlerResult{Result: payload})
@@ -73,7 +73,7 @@ func (handler *Handler) all(ctx echo.Context) error {
 
 		entry.DeletionURL = fmt.Sprintf(
 			"%s/%s/%s",
-			handler.GetURLOrigin(ctx),
+			handler.getDeletionURL(ctx, prefix),
 			k,
 			url.QueryEscape(base64.RawURLEncoding.EncodeToString(mac.Sum(nil))),
 		)
