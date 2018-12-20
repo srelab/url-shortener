@@ -9,7 +9,7 @@ import (
 	"github.com/srelab/url-shortener/pkg/g"
 )
 
-const defaultExpiration = time.Second * 5
+const defaultExpiration = time.Second * 60
 
 type Datetime struct {
 	time.Time
@@ -57,7 +57,7 @@ type Entry struct {
 
 // GetExpiration calculate the difference by expiration time
 func (entry *Entry) GetExpiration() time.Duration {
-	if entry.Public.Expiration.IsZero() {
+	if entry.Public.Expiration == nil || entry.Public.Expiration.IsZero() {
 		return 0
 	}
 

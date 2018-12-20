@@ -76,7 +76,7 @@ func (storage *Storage) keyExists(key string) (exists bool, err error) {
 
 // createValue create value in redis via key, that returns an error if the key already exists.
 func (storage *Storage) createValue(key string, raw []byte, expiration time.Duration) error {
-	logger.Debugf("Creating key '%s', expiration %d", key, expiration)
+	logger.Debugf("Creating key '%s', expiration %ds", key, expiration/time.Second)
 
 	if expiration < 0 {
 		logger.Infof("Skip the creation of the key '%s', it has expired", key)

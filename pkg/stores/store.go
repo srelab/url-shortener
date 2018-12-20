@@ -10,10 +10,11 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/go-playground/validator"
+
 	"github.com/srelab/url-shortener/pkg/logger"
 	"github.com/srelab/url-shortener/pkg/util"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/pborman/uuid"
 	"github.com/pkg/errors"
 	"github.com/srelab/url-shortener/pkg/g"
@@ -87,7 +88,7 @@ func (store *Store) GetEntryAndIncrease(id string) (*shared.Entry, error) {
 // CreateEntry creates a new record and returns his short id
 func (store *Store) CreateEntry(entry shared.Entry, givenID, password string) (string, []byte, error) {
 	entry.Public.URL = strings.Replace(entry.Public.URL, " ", "%20", -1)
-	if !govalidator.IsURL(entry.Public.URL) {
+	if err := validator.New().Var(entry.Public.URL, "required,url"); err != nil {
 		return "", nil, ErrNoValidURL
 	}
 
